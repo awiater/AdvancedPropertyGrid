@@ -70,6 +70,18 @@ namespace DataProvider.Components.PropertyGrid
         public Int32 FieldsSeparatorHeight { get; set; } = 5;
 
         /// <summary> 
+        /// Hide / Show field tooltip panel
+        /// </summary>
+        [Description("Tooltip panel visibility")]
+        public bool TooltipPanelVisible
+        {
+            get { return lblInfo.Visible; }
+            set { lblInfo.Visible = value; Invalidate(true); }
+        }
+        #endregion
+
+        #region Events
+        /// <summary> 
         /// Event executed when draw custom field 
         /// </summary>
         [Description("Holds custom fields execution")]
