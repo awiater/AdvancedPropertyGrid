@@ -16,6 +16,7 @@ using System.ComponentModel;
 using System.Linq;
 using System.Windows.Forms;
 using System.Reflection;
+using System.Drawing;
 
 namespace DataProvider.Components.PropertyGrid
 {
@@ -23,6 +24,11 @@ namespace DataProvider.Components.PropertyGrid
     /// DrawCustomField Delegate for DrawCustomField event
     /// </summary>
     public delegate void DrawCustomField(APGFieldHelper e);
+
+    /// <summary> 
+    /// DrawField Delegate for DrawField event
+    /// </summary>
+    public delegate void DrawField(Panel FieldContainer, Label FieldLabel, Control FieldEditBox);
 
     /// <summary> 
     /// AdvancedPropertyGrid Control Class 
@@ -34,6 +40,12 @@ namespace DataProvider.Components.PropertyGrid
         /// Conrtainer of fields objects 
         /// </summary>
         private Dictionary<string, APGFieldHelper> _Fields = new Dictionary<string, APGFieldHelper>();
+
+        /// <summary> 
+        /// Size of fields separator
+        /// </summary>
+        private Int32 _FieldsSeparatorHeight= 5;
+
         #endregion
 
         #region Public Properties
@@ -67,7 +79,11 @@ namespace DataProvider.Components.PropertyGrid
         /// Size of fields separator
         /// </summary>
         [Description("Fields separator height")]
-        public Int32 FieldsSeparatorHeight { get; set; } = 5;
+        public Int32 FieldsSeparatorHeight
+        {
+            get { return _FieldsSeparatorHeight; }
+            set { _FieldsSeparatorHeight = value; DrawFields(); }
+        }
 
         /// <summary> 
         /// Hide / Show field tooltip panel
@@ -86,6 +102,12 @@ namespace DataProvider.Components.PropertyGrid
         /// </summary>
         [Description("Holds custom fields execution")]
         public event DrawCustomField DrawCustomField;
+
+        /// <summary> 
+        /// Event executed when draw field 
+        /// </summary>
+        [Description("Holds fields execution")]
+        public event DrawField DrawField;
         #endregion
 
         #region Private Methods
@@ -97,10 +119,10 @@ namespace DataProvider.Components.PropertyGrid
         {
             Panel fldPanel = new Panel();
             fldPanel.Dock = DockStyle.Top;
-            fldPanel.BorderStyle = BorderStyle.Fixed3D;
+            //fldPanel.BorderStyle = BorderStyle.Fixed3D;
             Field.LabelPosition = UseDefaultSettings ? DefaultFieldLabelPosition : Field.LabelPosition;
             fldPanel.Margin = new Padding(0, 0, 0, 5);
-            
+
 
             fldPanel.ControlAdded += (s, e) =>
               {
@@ -109,24 +131,26 @@ namespace DataProvider.Components.PropertyGrid
                       e.Control.Name = "EditBox";
                       if (Field.LabelPosition == APGFieldsLabelPosition.Left || Field.LabelPosition == APGFieldsLabelPosition.Right || Field.LabelPosition == APGFieldsLabelPosition.Hide)
                       {
-                          fldPanel.Height = e.Control.Height+10;
+                          fldPanel.Height =Field.EditType==APGFieldTypes.TextField?25: e.Control.Height + 10;
                       }
                       else
                       if (Field.LabelPosition == APGFieldsLabelPosition.Above || Field.LabelPosition == APGFieldsLabelPosition.Bottom)
                       {
-                          fldPanel.Height =( e.Control.Height * 2)+10;
+                          fldPanel.Height = Field.EditType == APGFieldTypes.TextField ? 50:(e.Control.Height * 2) + 10;
                       }
                   }
+
                   e.Control.MouseClick += (ss, ee) =>
                   {
                       lblInfo.Text = Field.Tooltip;
                   };
-                  
+
               };
             Field.setFieldContainer(fldPanel);
             fldPanel.Name = Field.Name;
             CreateEditControl(Field);
             fldPanel.Controls.Add(Field.GetLabel());
+            fldPanel.Tag = Field;
             return fldPanel;
         }
 
@@ -149,8 +173,41 @@ namespace DataProvider.Components.PropertyGrid
                 case APGFieldTypes.CustomField:
                     DrawCustomField(Field);
                     break;
+                case APGFieldTypes.TextField:
+                    Label lbl = new Label();
+                    lbl.Text = string.Format("{0}", Field.Value);
+                    lbl.Name = "EditBox";
+                    lbl.AutoSize = false;
+                    lbl.Height = 25;
+                    lbl.Dock = DockStyle.Fill;
+                    lbl.TextAlign = ContentAlignment.MiddleLeft;
+                    Field.getFieldContainer().Controls.Add(lbl);
+                    break;
+                case APGFieldTypes.EditBoxButtonField:
+                    Panel pnl = new Panel();
+                    pnl.Name = "EditBox";
+                    pnl.Dock = DockStyle.Fill;
+
+                    txt = new TextBox();
+                    txt.Dock = DockStyle.Fill;
+                    txt.Text = string.Format("{0}", Field.Value);
+                    txt.Name = "EditBox";
+                    txt.MaxLength = Field.MaxChars;
+                    pnl.Controls.Add(txt);
+
+                    Button btn = new Button();
+                    btn.Height = txt.Height;
+                    btn.Width = 25;
+                    btn.Name = "EditButton";
+                    btn.Dock = DockStyle.Right;
+                    (new ToolTip()).SetToolTip(btn, Field.Tooltip);
+                    pnl.Controls.Add(btn);
+
+                    Field.getFieldContainer().Controls.Add(pnl);
+                    break;
             }
         }
+
         #endregion
 
         #region Public Methods
@@ -160,6 +217,7 @@ namespace DataProvider.Components.PropertyGrid
         public AdvancedPropertyGrid()
         {
             InitializeComponent();
+            DrawFields();
         }
 
         /// <summary> 
@@ -167,11 +225,21 @@ namespace DataProvider.Components.PropertyGrid
         /// </summary>
         public void DrawFields()
         {
-            for (Int32 id= _Fields.Count-1; id>=0;id--)
+            flowBody.Controls.Clear();
+            flowBody.SuspendLayout();
+            for (Int32 id = _Fields.Count - 1; id >= 0; id--)
             {
-                flowBody.Controls.Add(CreateField(_Fields.Values.ToArray()[id]));
-                flowBody.Controls.Add(new Panel() { Height = FieldsSeparatorHeight, Dock=DockStyle.Top });
+                Panel Field = CreateField(_Fields.Values.ToArray()[id]);
+                flowBody.Controls.Add(Field);
+                Label LabelBox = Field.Controls["LabelBox"] as Label;
+                Control EditBox = Field.Controls["EditBox"];
+                if (DrawField != null)
+                {
+                    DrawField(Field, LabelBox, EditBox);
+                }
+                flowBody.Controls.Add(new Panel() { Height = FieldsSeparatorHeight, Dock = DockStyle.Top });
             }
+            flowBody.ResumeLayout();
             Invalidate(true);
         }
 
@@ -204,7 +272,15 @@ namespace DataProvider.Components.PropertyGrid
                 _Fields[Name].Value = Value;
                 if (!isFilling)
                 {
-                    flowBody.Controls[Name].Controls["EditBox"].Text = string.Format("{0}", Value);
+                    if (flowBody.Controls[Name].Controls["EditBox"].GetType()==typeof(Panel)&& flowBody.Controls[Name].Controls["EditBox"].Controls.ContainsKey("EditBox"))
+                    {
+                        flowBody.Controls[Name].Controls["EditBox"].Controls["EditBox"].Text = string.Format("{0}", Value);
+                    }
+                    else
+                    {
+                        flowBody.Controls[Name].Controls["EditBox"].Text = string.Format("{0}", Value);
+                    }
+                   
                 }
             }
         }
@@ -240,18 +316,20 @@ namespace DataProvider.Components.PropertyGrid
                 EditFieldsList.Add(new APGFieldHelper()
                 {
                     Name = prop.Name,
-                    Label = LabelAttribute!=null? LabelAttribute.value:"",
-                    LabelPosition= LabelPositionAttribute != null ? LabelPositionAttribute.value :APGFieldsLabelPosition.Left,
-                    Tooltip= TooltipAttribute != null ? TooltipAttribute.value : "",
-                    Value=  prop.GetValue(ObjectWithFields),
-                    MaxChars= MaxCharsAttribute != null ? MaxCharsAttribute.value:9999,
-                    EditType= FieldEditTypeAttribute != null ? FieldEditTypeAttribute.value:APGFieldTypes.TextField,
+                    Label = LabelAttribute != null ? LabelAttribute.value : "",
+                    LabelPosition = LabelPositionAttribute != null ? LabelPositionAttribute.value : APGFieldsLabelPosition.Left,
+                    Tooltip = TooltipAttribute != null ? TooltipAttribute.value : "",
+                    Value = prop.GetValue(ObjectWithFields),
+                    MaxChars = MaxCharsAttribute != null ? MaxCharsAttribute.value : 9999,
+                    EditType = FieldEditTypeAttribute != null ? FieldEditTypeAttribute.value : APGFieldTypes.TextField,
                 });
 
             }
-            _Fields = EditFieldsList.ToDictionary(x=>x.Name,x=>x);
+            _Fields = EditFieldsList.ToDictionary(x => x.Name, x => x);
             DrawFields();
         }
         #endregion
+
+
     }
 }
