@@ -1,22 +1,46 @@
-﻿using System;
+#region Licence
+/*
+ * Copyright 2018 Artur Wiater
+ * 
+ * AdvancedPropertyGrid is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, 
+ * either version 3 of the License, or(at your option) any later version.
+ * AdvancedPropertyGrid is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; 
+ * without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the GNU General Public License for more details.
+ * You should have received a copy of the GNU General Public License along with Collaborator+. 
+ * If not, see http://www.gnu.org/licenses/.
+*/
+#endregion
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Drawing;
-using System.Data;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Reflection;
 
 namespace DataProvider.Components.PropertyGrid
 {
+    /// <summary> 
+    /// DrawCustomField Delegate for DrawCustomField event
+    /// </summary>
     public delegate void DrawCustomField(APGFieldHelper e);
 
+    /// <summary> 
+    /// AdvancedPropertyGrid Control Class 
+    /// </summary>
     public partial class AdvancedPropertyGrid : UserControl
     {
+        #region Private Properties
+        /// <summary> 
+        /// Conrtainer of fields objects 
+        /// </summary>
         private Dictionary<string, APGFieldHelper> _Fields = new Dictionary<string, APGFieldHelper>();
+        #endregion
 
+        #region Public Properties
+        /// <summary> 
+        /// Array with fields objects 
+        /// </summary>
+        [Description("Array with fields objects")]
         public APGFieldHelper[] Fields
         {
             get { return _Fields.Values.ToArray(); }
@@ -27,20 +51,36 @@ namespace DataProvider.Components.PropertyGrid
             }
         }
 
+        /// <summary> 
+        /// Default position of field labels 
+        /// </summary>
+        [Description("Default position of field labels")]
         public APGFieldsLabelPosition DefaultFieldLabelPosition { get; set; } = APGFieldsLabelPosition.Left;
 
+        /// <summary> 
+        /// When true default settings will be used 
+        /// </summary>
+        [Description("Default Settings usage")]
         public bool UseDefaultSettings { get; set; } = false;
 
+        /// <summary> 
+        /// Size of fields separator
+        /// </summary>
+        [Description("Fields separator height")]
         public Int32 FieldsSeparatorHeight { get; set; } = 5;
 
+        /// <summary> 
+        /// Event executed when draw custom field 
+        /// </summary>
+        [Description("Holds custom fields execution")]
         public event DrawCustomField DrawCustomField;
+        #endregion
 
-
-        public AdvancedPropertyGrid()
-        {
-            InitializeComponent();
-        }
-
+        #region Private Methods
+        /// <summary> 
+        /// Create field control
+        /// </summary>
+        /// <param name="Field">Field object</param>
         private Panel CreateField(APGFieldHelper Field)
         {
             Panel fldPanel = new Panel();
@@ -78,6 +118,10 @@ namespace DataProvider.Components.PropertyGrid
             return fldPanel;
         }
 
+        /// <summary> 
+        /// Create edit box using FieldType property 
+        /// </summary>
+        /// <param name="Field">Field object</param>
         private void CreateEditControl(APGFieldHelper Field)
         {
             switch (Field.EditType)
@@ -95,7 +139,20 @@ namespace DataProvider.Components.PropertyGrid
                     break;
             }
         }
+        #endregion
 
+        #region Public Methods
+        /// <summary> 
+        /// InitializeComponent
+        /// </summary>
+        public AdvancedPropertyGrid()
+        {
+            InitializeComponent();
+        }
+
+        /// <summary> 
+        /// Draw fields in control body 
+        /// </summary>
         public void DrawFields()
         {
             for (Int32 id= _Fields.Count-1; id>=0;id--)
@@ -106,6 +163,10 @@ namespace DataProvider.Components.PropertyGrid
             Invalidate(true);
         }
 
+        /// <summary> 
+        /// Return field value by given name 
+        /// </summary>
+        /// <param name="Name">Name of field</param>
         public object GetFieldValue(string Name)
         {
 
@@ -118,6 +179,12 @@ namespace DataProvider.Components.PropertyGrid
             return null;
         }
 
+        /// <summary> 
+        /// Set field value by given name 
+        /// </summary>
+        /// <param name="Name">Name of field</param>
+        /// <param name="Value">Field value to set</param>
+        /// <param name="isFilling">Optional field not in use now</param>
         public void SetFieldValue(string Name, object Value, bool isFilling = false)
         {
             if (_Fields.ContainsKey(Name))
@@ -130,6 +197,11 @@ namespace DataProvider.Components.PropertyGrid
             }
         }
 
+        /// <summary> 
+        /// Change field object by given name
+        /// </summary>
+        /// <param name="Name">Name of field</param>
+        /// <param name="Field">New field object</param>
         public void setFieldByName(string Name, APGFieldHelper Field)
         {
             if (_Fields.ContainsKey(Name))
@@ -138,6 +210,10 @@ namespace DataProvider.Components.PropertyGrid
             }
         }
 
+        /// <summary> 
+        /// Create fields list from properties of given object 
+        /// </summary>
+        /// <param name="ObjectWithFields">Any object with Fields Attributes setup against properties</param>
         public void CreateFieldsFromObject(object ObjectWithFields)
         {
             List<APGFieldHelper> EditFieldsList = new List<APGFieldHelper>();
@@ -164,5 +240,6 @@ namespace DataProvider.Components.PropertyGrid
             _Fields = EditFieldsList.ToDictionary(x=>x.Name,x=>x);
             DrawFields();
         }
+        #endregion
     }
 }
